@@ -93,5 +93,5 @@
       true (if (> c 0) (recur (dec c))))))
 
 
-(run-server {:port 8080}
+(run-server {:port 80}
   "/*" (servlet my-app))
