@@ -17,12 +17,12 @@
 
 
 (defn run-file
-  [ns file]
+  [ns file uri]
   (let [sb (new-sandbox :namespace ns)
 	ns (create-ns ns)]
     (try
      (let [res (with-open [r (java.io.PushbackReader. (reader file))] (sb (read r)))]
-      (page [:body res]))
+      (page [:body res [:p [:a {:href (str uri "?edit=") } "edit"]]]))
      (catch Exception e
        (page [:body e])))))
 
@@ -38,20 +38,24 @@
   (GET "/"
     (html [:h1 "Hello World"]))
   (GET "*"
-    (let [file-name (uri-to-file-name  (:uri request))
-          file (java.io.File. file-name)]
+    (let [uri (:uri request)
+	  file-name (uri-to-file-name uri)
+	  file (java.io.File. file-name)]
       (if (or (:edit params) (not (.exists file)))
 	(page [:form {:action (:uri request) :method :post}
-	       [:textarea {:name "code"} (read-lines file-name)] :br [:input  {:type "submit" :value "Save"}]])
-	(run-file (uri-to-ns file-name) file))))
+	       [:textarea {:name "code"} (if (.exists file) (read-lines file-name))] :br [:input  {:type "submit" :value "Save"}]])
+	(run-file (uri-to-ns file-name) file uri))))
   (POST "*"
-	(let [file-name (uri-to-file-name  (:uri request))
+	(let [uri (:uri request)
+	      file-name (uri-to-file-name uri)
+	      file (java.io.File. file-name)
 	      code (:code (:form-params request))]
 	  (try
 	   (read-string code)
+	   (.mkdirs (.getParentFile file))
 	   (spit file-name code)
-	   (run-file (uri-to-ns file-name) (java.io.File. file-name))
-	   (catch Exception e (page [:h1 "Ohhh no! The code could not be read!"] [:pre code]))))))
+	   (run-file (uri-to-ns file-name) file uri)
+	   (catch Exception e (page [:h1 "Ohhh no! The code could not be read!"] [:pre code] e))))))
 
 (run-server {:port 8080}
   "/*" (servlet my-app))
