@@ -1,0 +1,1 @@
+(str \[ (apply str (interpose ", " (map #(str \" % \") (api/list-articles)))) \])

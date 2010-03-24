@@ -1,15 +1,15 @@
 (ns clicky
+  (:use config)
   (:use compojure)
   (:use net.licenser.sandbox)
   (:use net.licenser.sandbox.matchers)
   (:require  [clojure.contrib.str-utils2 :as su])
   (:use clojure.contrib.duck-streams)
+  (:require api)
   (:gen-class))
   
   
-(def *data-dir* "./data")
 
-(def *base-name* "clicky.sandbox")
 
 (defn parital-namespace-matcher
   "Creates a tester that whitelists all functions within a namespace."
@@ -25,7 +25,13 @@
      true
       '())))
 
-(def *tester* (extend-tester secure-tester (whitelist (function-matcher 'def 'require 'use) (parital-namespace-matcher 'clicky.sandbox))))
+(def *tester* 
+  (extend-tester 
+    secure-tester 
+      (whitelist 
+        (function-matcher 'def 'print 'println 'apply) 
+        (namespace-matcher 'api)
+        (parital-namespace-matcher (symbol *base-name*)))))
 
 (defn page
   [& body]
@@ -36,18 +42,25 @@
   (symbol (su/replace (su/drop uri 1) \/ \.)))
 
 (defn exec-file
-  [file ns]
-  (let [sb (new-sandbox-compiler :namespace ns :tester *tester* :timeout 500)]
-    (with-open [r (java.io.PushbackReader. (reader file))] ((sb (read r)) {}))))
+  [file ns uri]
+  (let [sb (new-sandbox-compiler :namespace ns :tester *tester* :timeout 500)
+        out (java.io.StringWriter.)
+        eof (gensym "eof")]
+    (with-open [r (java.io.PushbackReader. (reader file)) 
+                out (java.io.StringWriter.)] 
+      (loop [exp (read r false eof) res nil]
+          (if (not= exp eof)
+            (recur (read r false eof) ((sb exp 'uri) {'*out* out} uri))
+            (str (if res (.append out res) out)))))))
 
 (defn run-file
   [ns file uri]
-  (let [ns (symbol (str *base-name* "." ns))]
+  (let [ ns (symbol (str *base-name* ns))]
     (try
-     (let [res (exec-file file ns)]
-      (page [:body res [:p [:a {:href (str uri "?edit=") } "edit"]]]))
+     (let [res (exec-file file ns uri)]
+      res)
      (catch Exception e
-       (page [:body e])))))
+       (page e [:p [:a {:href (str uri "?edit=") } "edit"]])))))
 
 (defn clicly-handler [request]
   (html))
@@ -56,16 +69,17 @@
   [uri]
   (str *data-dir*  uri ".clj"))
 
+
 (defroutes my-app
   (GET "/"
-       (html [:h1 "Hello World"]))
+       (redirect-to "/index"))
   (GET "*"
        (let [uri (:uri request)
 	     file-name (uri-to-file-name uri)
 	     file (java.io.File. file-name)]
 	 (if (or (:edit params) (not (.exists file)))
-	   (page [:form {:action (:uri request) :method :post}
-		  [:textarea {:name "code"} (if (.exists file) (read-lines file-name))] :br [:input  {:type "submit" :value "Save"}]])
+	   (page [:h2 (str file-name " not found.")] [:form {:action (:uri request) :method :post}
+		  [:textarea {:name "code" :cols 80 :rows 40} (if (.exists file) (slurp file-name))] [:br] [:input  {:type "submit" :value "Save"}]])
 	   (run-file (uri-to-ns uri) file uri))))
   (POST "*"
 	(let [uri (:uri request)
@@ -79,6 +93,8 @@
 	   (run-file (uri-to-ns uri) file uri)
 	   (catch Exception e (page [:h1 "Ohhh no! The code could not be read!"] [:pre code] e))))))
 
+
+
 (defn first-update []
   (let [files (filter #(.isFile %) (file-seq (java.io.File. *data-dir*)))]
     (loop [c (* (count files) (count files))]
@@ -87,7 +103,7 @@
 	   (dorun
 	    (map #(apply exec-file %)
 		 (sort-by (fn [& _] (rand-int 42)) (map 
-						    (fn [file] (vector file (symbol (str *base-name* "." (su/replace (second (re-find #"^\./data/(.*)\.clj$" (str file))) \/ \.)))))
+						    (fn [file] (vector file (symbol (str *base-name* (su/replace (second (re-find #"^\./data/(.*)\.clj$" (str file))) \/ \.))) ""))
 						    files))))
 	   true
 	   (catch Exception e false))
