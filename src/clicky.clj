@@ -3,7 +3,8 @@
   (:use net.licenser.sandbox)
   (:use net.licenser.sandbox.matchers)
   (:require  [clojure.contrib.str-utils2 :as su])
-  (:use clojure.contrib.duck-streams))
+  (:use clojure.contrib.duck-streams)
+  (:gen-class))
   
   
 (def *data-dir* "./data")
@@ -55,18 +56,17 @@
   [uri]
   (str *data-dir*  uri ".clj"))
 
-
 (defroutes my-app
   (GET "/"
-    (html [:h1 "Hello World"]))
+       (html [:h1 "Hello World"]))
   (GET "*"
-    (let [uri (:uri request)
-	  file-name (uri-to-file-name uri)
-	  file (java.io.File. file-name)]
-      (if (or (:edit params) (not (.exists file)))
-	(page [:form {:action (:uri request) :method :post}
-	       [:textarea {:name "code"} (if (.exists file) (read-lines file-name))] :br [:input  {:type "submit" :value "Save"}]])
-	(run-file (uri-to-ns uri) file uri))))
+       (let [uri (:uri request)
+	     file-name (uri-to-file-name uri)
+	     file (java.io.File. file-name)]
+	 (if (or (:edit params) (not (.exists file)))
+	   (page [:form {:action (:uri request) :method :post}
+		  [:textarea {:name "code"} (if (.exists file) (read-lines file-name))] :br [:input  {:type "submit" :value "Save"}]])
+	   (run-file (uri-to-ns uri) file uri))))
   (POST "*"
 	(let [uri (:uri request)
 	      file-name (uri-to-file-name uri)
@@ -79,19 +79,21 @@
 	   (run-file (uri-to-ns uri) file uri)
 	   (catch Exception e (page [:h1 "Ohhh no! The code could not be read!"] [:pre code] e))))))
 
-(let [files (filter #(.isFile %) (file-seq (java.io.File. *data-dir*)))]
-  (loop [c (* (count files) (count files))]
-    (if 
-	(try
-	 (dorun
-	  (map #(apply exec-file %)
-	       (sort-by (fn [& _] (rand-int 42)) (map 
-					 (fn [file] (vector file (symbol (str *base-name* "." (su/replace (second (re-find #"^\./data/(.*)\.clj$" (str file))) \/ \.)))))
-					 files))))
-	 true
-	 (catch Exception e false))
-      true (if (> c 0) (recur (dec c))))))
+(defn first-update []
+  (let [files (filter #(.isFile %) (file-seq (java.io.File. *data-dir*)))]
+    (loop [c (* (count files) (count files))]
+      (if 
+	  (try
+	   (dorun
+	    (map #(apply exec-file %)
+		 (sort-by (fn [& _] (rand-int 42)) (map 
+						    (fn [file] (vector file (symbol (str *base-name* "." (su/replace (second (re-find #"^\./data/(.*)\.clj$" (str file))) \/ \.)))))
+						    files))))
+	   true
+	   (catch Exception e false))
+	true (if (> c 0) (recur (dec c)))))))
 
-
-(run-server {:port 8080}
-  "/*" (servlet my-app))
+(defn -main []
+  (first-update)
+  (run-server {:port 8080}
+	      "/*" (servlet my-app)))
