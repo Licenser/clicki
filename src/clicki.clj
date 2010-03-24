@@ -1,4 +1,5 @@
 (ns clicki
+  (:use clojure.stacktrace)
   (:use config)
   (:use compojure)
   (:use net.licenser.sandbox)
@@ -51,7 +52,9 @@
       (loop [exp (read r false eof) res nil]
           (if (not= exp eof)
             (recur (read r false eof) ((sb exp 'request) {'*out* out} request))
-            (str (if res (.append out res) out)))))))
+            (if (empty? (str out))
+              res 
+              (str (if res (.append out res) out))))))))
 
 (defn run-file
   [ns file request]
@@ -60,6 +63,7 @@
      (let [res (exec-file file ns request)]
       res)
      (catch Exception e
+       (print-stack-trace e)
        (page e [:p [:a {:href (str (:uri request) "?edit=") } "edit"]])))))
 
 (defn clicly-handler [request]
@@ -74,7 +78,7 @@
   
 )
 
-(defroutes my-app
+(defroutes clicki
   (GET "/"
        (redirect-to "/index"))
   (GET "*"
@@ -113,7 +117,8 @@
 	   (catch Exception e false))
 	true (if (> c 0) (recur (dec c)))))))
 
+(decorate clicki (with-session :memory))
 (defn -main []
   (first-update)
   (run-server {:port 8080}
-	      "/*" (servlet my-app)))
+	      "/*" (servlet clicki)))

@@ -1,0 +1,1 @@
+(c.template/layout (:uri request) "Request" [:pre (pr request)])
