@@ -2,4 +2,5 @@ pom-generated.xml
 Manifest.txt
 clicky*.jar
 lib
+data
 classes
