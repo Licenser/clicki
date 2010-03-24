@@ -1,4 +1,4 @@
-(ns clicky
+(ns clicki
   (:use config)
   (:use compojure)
   (:use net.licenser.sandbox)
@@ -35,7 +35,7 @@
 
 (defn page
   [& body]
-  (html [:title "Clicky! Bunti!"] (vec (concat [:body] body))))
+  (html [:title "Clicki! Bunti!"] (vec (concat [:body] body))))
 
 (defn uri-to-ns
   [uri]
