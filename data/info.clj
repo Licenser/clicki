@@ -1,1 +1,0 @@
-(println (c.template/layout "Info" "It is quite easy to use functions from other namespaces. just call (c.namespace/function params)"))
