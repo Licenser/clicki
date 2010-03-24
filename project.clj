@@ -3,7 +3,7 @@
   :namespaces [clicky]
   :dependencies [
   [compojure "0.3.2"]
-  [clj-sandbox "0.2.7-SNAPSHOT"]
+  [clj-sandbox "0.2.8-SNAPSHOT"]
   [org.clojure/clojure "1.1.0"]
   [org.clojure/clojure-contrib "1.1.0"]]
   :main clicky
