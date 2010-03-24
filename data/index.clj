@@ -1,4 +1,4 @@
-(c.template/layout uri "Index" 
+(c.template/layout (:uri request) "Index" 
   [:ul
     (map 
       (fn [page] [:li [:a {:href page} page]]) (api/list-articles))]
@@ -10,7 +10,7 @@ xhr.open('GET', 'json/pages', false);
 try {
   xhr.send(null);
   pages = JSON.parse(xhr.responseText);
-  document.getElementById('test').innerHTML = pages ;
+  document.getElementById('test').innerHTML = 'List of pages gotten json:' + pages;
 } catch (e) {
   alert('Could not read battle log:' + e);
 }

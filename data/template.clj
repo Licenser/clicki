@@ -4,6 +4,6 @@
 (defn layout [uri title & body]
   (layout-with-head uri [:title (str "Clicki - " title)] body))
 
-(layout uri
+(layout (:uri request)
   "Layout"
   [:p "Implements a layout function."])

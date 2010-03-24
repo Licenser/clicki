@@ -29,7 +29,7 @@
   (extend-tester 
     secure-tester 
       (whitelist 
-        (function-matcher 'def 'print 'println 'apply) 
+        (function-matcher 'def 'print 'println 'apply 'pr 'pr-str) 
         (namespace-matcher 'api)
         (parital-namespace-matcher (symbol *base-name*)))))
 
@@ -42,7 +42,7 @@
   (symbol (su/replace (su/drop uri 1) \/ \.)))
 
 (defn exec-file
-  [file ns uri params]
+  [file ns request]
   (let [sb (new-sandbox-compiler :namespace ns :tester *tester* :timeout 500)
         out (java.io.StringWriter.)
         eof (gensym "eof")]
@@ -50,17 +50,17 @@
                 out (java.io.StringWriter.)] 
       (loop [exp (read r false eof) res nil]
           (if (not= exp eof)
-            (recur (read r false eof) ((sb exp 'uri 'params) {'*out* out} uri params))
+            (recur (read r false eof) ((sb exp 'request) {'*out* out} request))
             (str (if res (.append out res) out)))))))
 
 (defn run-file
-  [ns file uri params]
+  [ns file request]
   (let [ ns (symbol (str *base-name* ns))]
     (try
-     (let [res (exec-file file ns uri params)]
+     (let [res (exec-file file ns request)]
       res)
      (catch Exception e
-       (page e [:p [:a {:href (str uri "?edit=") } "edit"]])))))
+       (page e [:p [:a {:href (str (:uri request) "?edit=") } "edit"]])))))
 
 (defn clicly-handler [request]
   (html))
@@ -69,6 +69,10 @@
   [uri]
   (str *data-dir*  uri ".clj"))
 
+(defn can-edit?
+  [uri request]
+  
+)
 
 (defroutes my-app
   (GET "/"
@@ -80,7 +84,7 @@
 	 (if (or (:edit params) (not (.exists file)))
 	   (page [:h2 (str file-name " not found.")] [:form {:action (:uri request) :method :post}
 		  [:textarea {:name "code" :cols 80 :rows 40} (if (.exists file) (slurp file-name))] [:br] [:input  {:type "submit" :value "Save"}]])
-	   (run-file (uri-to-ns uri) file uri params))))
+	   (run-file (uri-to-ns uri) file request))))
   (POST "*"
 	(let [uri (:uri request)
 	      file-name (uri-to-file-name uri)
@@ -90,7 +94,7 @@
 	   (read-string code)
 	   (.mkdirs (.getParentFile file))
 	   (spit file-name code)
-	   (run-file (uri-to-ns uri) file uri params)
+	   (run-file (uri-to-ns uri) file request)
 	   (catch Exception e (page [:h1 "Ohhh no! The code could not be read!"] [:pre code] e))))))
 
 
@@ -103,7 +107,7 @@
 	   (dorun
 	    (map #(apply exec-file %)
 		 (sort-by (fn [& _] (rand-int 42)) (map 
-						    (fn [file] (vector file (symbol (str *base-name* (su/replace (second (re-find #"^\./data/(.*)\.clj$" (str file))) \/ \.))) "" {}))
+						    (fn [file] (vector file (symbol (str *base-name* (su/replace (second (re-find #"^\./data/(.*)\.clj$" (str file))) \/ \.))) {}))
 						    files))))
 	   true
 	   (catch Exception e false))
